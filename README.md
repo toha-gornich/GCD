@@ -1,31 +1,35 @@
-iOS Concurrency Examples
+# iOS Concurrency Examples
+
 A comprehensive collection of concurrency patterns in iOS, covering both legacy GCD (Grand Central Dispatch) and modern async/await approaches.
-📋 Table of Contents
 
-Overview
-GCD Basics
-Serial vs Concurrent Queues
-Common Pitfalls
-Synchronization Patterns
-Modern Concurrency
-Best Practices
+## Table of Contents
+- [Overview](#overview)
+- [GCD Basics](#gcd-basics)
+- [Serial vs Concurrent Queues](#serial-vs-concurrent-queues)
+- [Common Pitfalls](#common-pitfalls)
+- [Synchronization Patterns](#synchronization-patterns)
+- [Modern Concurrency](#modern-concurrency)
+- [Best Practices](#best-practices)
 
-🎯 Overview
+## Overview
+
 This repository contains practical examples demonstrating various concurrency patterns in iOS development. Each example includes detailed comments and expected output to help you understand threading behavior.
-🚀 GCD Basics
-Concurrent Queue with async/sync
-Demonstrates the difference between synchronous and asynchronous execution:
-swiftlet concurrent = DispatchQueue.global(qos: .utility)
 
-print(1, Thread.current)  // Main thread
+## GCD Basics
+
+### Concurrent Queue with async/sync
+```swift
+let concurrent = DispatchQueue.global(qos: .utility)
+
+print(1, Thread.current)
 
 concurrent.async {
     Thread.sleep(forTimeInterval: 2)
-    print(2, Thread.current)  // Background thread
+    print(2, Thread.current)
 }
 
 concurrent.sync {
-    print(3, Thread.current)  // Main thread (blocks until completion)
+    print(3, Thread.current)
 }
 ```
 
@@ -34,13 +38,15 @@ concurrent.sync {
 1 <_NSMainThread>
 3 <_NSMainThread>
 2 <NSThread: number = 7>
+```
 
-💡 Key takeaway: sync blocks the current thread, async doesn't.
+**Key takeaway:** `sync` blocks the current thread, `async` doesn't.
 
-🔄 Serial vs Concurrent Queues
-Serial Queue
-Executes tasks one at a time in FIFO order:
-swiftlet serial = DispatchQueue(label: "serial", qos: .userInteractive)
+## Serial vs Concurrent Queues
+
+### Serial Queue
+```swift
+let serial = DispatchQueue(label: "serial", qos: .userInteractive)
 
 print(1)
 serial.async {
@@ -48,54 +54,54 @@ serial.async {
     print(2)
 }
 serial.async {
-    print(3)  // Waits for previous task
+    print(3)
 }
-Output: 1, 2, 3
-Concurrent Queue
-Allows parallel execution of tasks:
-swiftlet concurrent = DispatchQueue(label: "concurrent", attributes: .concurrent)
+```
+
+**Output:** `1, 2, 3`
+
+### Concurrent Queue
+```swift
+let concurrent = DispatchQueue(label: "concurrent", attributes: .concurrent)
 
 concurrent.async { print("Task 1") }
-concurrent.async { print("Task 2") }  // Can run simultaneously
+concurrent.async { print("Task 2") }
+```
 
-📊 Key difference: Serial executes one task at a time, concurrent allows parallel execution.
+## Common Pitfalls
 
-⚠️ Common Pitfalls
-Deadlock Example
-swiftlet main = DispatchQueue.main
+### Deadlock
+```swift
+let main = DispatchQueue.main
 
 print(1)
 main.sync {
-    print(2)  // ❌ DEADLOCK - main waits for itself
+    print(2)  // DEADLOCK
 }
-print(3)  // Never executes
-Why it happens: Main thread tries to synchronously execute on itself = infinite wait.
-Thread Reuse in Serial Queue
-swiftlet serial = DispatchQueue(label: "serial")
+print(3)
+```
 
-serial.async { print(1, Thread.current) }  // Thread A
-serial.async { print(2, Thread.current) }  // Same Thread A
+**Why:** Main thread waits for itself.
 
-DispatchQueue.global().async {
-    serial.sync { print(3, Thread.current) }  // Different thread
-}
-🔐 Synchronization Patterns
-Dispatch Barrier
-Thread-safe read/write operations:
-swiftlet concurrent = DispatchQueue(label: "concurrent", attributes: .concurrent)
+## Synchronization Patterns
+
+### Dispatch Barrier
+```swift
+let concurrent = DispatchQueue(label: "concurrent", attributes: .concurrent)
 
 concurrent.async { print("Read 1") }
 concurrent.async { print("Read 2") }
 
 concurrent.async(flags: .barrier) {
-    print("WRITE")  // Exclusive access
+    print("WRITE")
 }
 
 concurrent.async { print("Read 3") }
-Use case: Reads can happen concurrently, writes get exclusive access.
-DispatchGroup
-Coordinate multiple async tasks:
-swiftlet group = DispatchGroup()
+```
+
+### DispatchGroup
+```swift
+let group = DispatchGroup()
 let queue = DispatchQueue(label: "queue")
 
 queue.async(group: group) {
@@ -103,42 +109,35 @@ queue.async(group: group) {
 }
 
 group.notify(queue: .main) {
-    print("All done")  // Called when all tasks complete
+    print("All done")
 }
-Manual enter/leave:
-swiftgroup.enter()
-someAsyncOperation {
-    print("Completed")
-    group.leave()
-}
-DispatchSemaphore
-Limit concurrent operations:
-swiftlet semaphore = DispatchSemaphore(value: 5)  // Max 5 concurrent tasks
+```
+
+### DispatchSemaphore
+```swift
+let semaphore = DispatchSemaphore(value: 5)
 
 for number in 1...10 {
-    semaphore.wait()  // Blocks if limit reached
+    semaphore.wait()
     queue.async {
         uploadNumber(number)
-        semaphore.signal()  // Releases slot
+        semaphore.signal()
     }
 }
 ```
 
-**Use case:** Limiting concurrent network requests, downloads, or resource-intensive operations.
+## Modern Concurrency
 
-**Example output:**
-```
-⏱: 1.18 sec (vs 5+ sec without semaphore)
-✨ Modern Concurrency
-async/await with Concurrent Execution
-swiftfunc myMethod() async {
+### async/await
+```swift
+func myMethod() async {
     print(1)
     
     do {
-        async let task1: () = someAsyncMethod()   // Starts immediately
-        async let task2: () = someAsyncMethod2()  // Starts immediately
+        async let task1: () = someAsyncMethod()
+        async let task2: () = someAsyncMethod2()
         
-        try await task1  // Wait for completion
+        try await task1
         await task2
         
         print(4)
@@ -146,45 +145,27 @@ swiftfunc myMethod() async {
         print("Error:", error)
     }
 }
-Key features:
+```
 
-✅ async let starts tasks concurrently
-✅ await suspends without blocking threads
-✅ Structured concurrency prevents leaks
-✅ Better error handling than GCD
+## Best Practices
 
-Comparison: GCD vs async/await
-FeatureGCDasync/awaitReadability❌ Callback hell✅ Linear codeThread safety⚠️ Manual✅ ActorsCancellation❌ Complex✅ Built-inError handling❌ Scattered✅ try/catchMemory leaks⚠️ [weak self]✅ Automatic
-📚 Best Practices
+1. Use async/await for new code
+2. Avoid `main.sync` - causes deadlocks
+3. Use barriers for thread-safe read/write
+4. Limit concurrent tasks with semaphores
+5. Always dispatch UI updates to main thread
 
-Use async/await for new code - cleaner and safer
-Avoid main.sync - causes deadlocks
-Use barriers for read/write - thread-safe data access
-Limit concurrent tasks - use semaphores to prevent thread explosion
-Always dispatch UI updates to main thread
+## Requirements
 
-swift   DispatchQueue.main.async {
-       label.text = "Updated"
-   }
+- iOS 13.0+
+- Swift 5.5+
+- Xcode 13.0+
 
-Prefer actors over locks - automatic thread safety
-Use @MainActor - ensures UI updates on main thread
+## Resources
 
-🛠 Requirements
+- [Apple's Concurrency Documentation](https://developer.apple.com/documentation/swift/concurrency)
+- [WWDC 2021: Meet async/await](https://developer.apple.com/videos/play/wwdc2021/10132/)
 
-iOS 13.0+
-Swift 5.5+ (for async/await: iOS 15.0+)
-Xcode 13.0+
+## License
 
-📖 Resources
-
-Apple's Concurrency Documentation
-WWDC 2021: Meet async/await
-Swift Concurrency Roadmap
-
-🤝 Contributing
-Pull requests are welcome! Feel free to add more examples or improve existing ones.
-📄 License
-MIT License - feel free to use this code in your projects.
-
-⭐️ If you found this helpful, please star the repository!
+MIT License
